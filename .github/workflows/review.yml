@@ -1,0 +1,35 @@
+name: Java AI Review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+
+      - name: Review PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          jacr review . --base origin/main --format markdown --output review-report.md
+
+      - name: Comment report
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          filePath: review-report.md
+          
