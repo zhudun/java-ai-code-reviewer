@@ -1,0 +1,101 @@
+name: Java AI Code Reviewer
+description: Hybrid deterministic + LLM review for Java pull requests
+author: zhudun
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  path:
+    description: Repository path to scan
+    required: false
+    default: "."
+  base:
+    description: Git base ref for diff review
+    required: false
+    default: ${{ github.event.pull_request.base.sha }}
+  head:
+    description: Git head ref for diff review
+    required: false
+    default: ${{ github.event.pull_request.head.sha }}
+  fail-on:
+    description: Fail the job when findings reach this severity (CRITICAL, HIGH, MEDIUM, LOW, NONE)
+    required: false
+    default: HIGH
+  format:
+    description: Extra report format written to disk (json, markdown, sarif)
+    required: false
+    default: json
+  comment-pr:
+    description: Post a markdown summary on the pull request
+    required: false
+    default: "true"
+  no-llm:
+    description: Disable LLM/heuristic stage
+    required: false
+    default: "false"
+  openai-api-key:
+    description: Optional OpenAI-compatible API key for contextual review
+    required: false
+    default: ""
+  openai-base-url:
+    description: Optional OpenAI-compatible base URL
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install java-ai-code-reviewer
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install "${{ github.action_path }}"
+
+    - name: Review Java changes
+      shell: bash
+      env:
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+        OPENAI_BASE_URL: ${{ inputs.openai-base-url }}
+        JACR_NO_LLM: ${{ inputs.no-llm }}
+      run: |
+        EXTRA=()
+        if [ "${JACR_NO_LLM}" = "true" ]; then
+          EXTRA+=(--no-llm)
+        fi
+        jacr review "${{ inputs.path }}" \
+          --base "${{ inputs.base }}" \
+          --head "${{ inputs.head }}" \
+          --format json \
+          --output review-report.json \
+          --fail-on NONE \
+          "${EXTRA[@]}"
+        jacr render review-report.json --format markdown --output review-report.md
+        jacr render review-report.json --format terminal
+
+    - name: Comment on pull request
+      if: ${{ github.event_name == 'pull_request' && inputs.comment-pr == 'true' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        jacr github-comment review-report.json --title "Java AI Code Review"
+
+    - name: Upload reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: java-ai-code-review
+        path: |
+          review-report.json
+          review-report.md
+        if-no-files-found: ignore
+
+    - name: Enforce severity gate
+      shell: bash
+      run: jacr gate review-report.json --fail-on "${{ inputs.fail-on }}"

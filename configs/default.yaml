@@ -1,0 +1,29 @@
+include:
+  - "**/*.java"
+  - "**/*mapper*.xml"
+  - "**/*dao*.xml"
+exclude:
+  - "**/target/**"
+  - "**/build/**"
+  - "**/.git/**"
+  - "**/generated/**"
+fail_on: HIGH
+language: zh
+rules:
+  npe:
+    enabled: true
+  resource-leak:
+    enabled: true
+  thread-safety:
+    enabled: true
+  transaction:
+    enabled: true
+  sql-injection:
+    enabled: true
+llm:
+  enabled: true
+  provider: openai
+  model: gpt-4o-mini
+  timeout_seconds: 45
+  max_files: 12
+  max_chars_per_file: 8000

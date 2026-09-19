@@ -1,0 +1,24 @@
+# 复制到目标仓库的 .github/workflows/java-review.yml
+name: Java AI Review
+
+permissions:
+  contents: read
+  pull-requests: write
+
+on:
+  pull_request:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: zhudun/java-ai-code-reviewer@v0.1.0
+        with:
+          fail-on: HIGH
+          comment-pr: "true"
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # 没有密钥时会自动走本地启发式上下文审查
